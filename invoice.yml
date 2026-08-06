@@ -1,0 +1,16 @@
+invoice_number: "INV-2026-001"
+date: "2026-08-06"
+
+client:
+  name: "John Doe"
+  address: "45 Main Street, Sandton, Johannesburg"
+  telephone: "082 123 4567"
+  email: "johndoe@example.com"
+
+items:
+  - description: "Engine Rebuild"
+    quantity: 1
+    unit_price: 15000.00
+  - description: "Diagnostics & Auto Electrical Check"
+    quantity: 1
+    unit_price: 1200.00
