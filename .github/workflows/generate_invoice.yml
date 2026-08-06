@@ -1,4 +1,4 @@
-name: Generate Invoice PDF (NVIDIA NIM Microservices)
+name: Generate Invoice PDF (Olwethu Crafts Auto)
 
 on:
   workflow_dispatch:
@@ -27,10 +27,48 @@ on:
         description: 'Client Email'
         required: true
         default: 'client@example.com'
-      raw_services:
-        description: 'Services (e.g., Engine Rebuild qty 1 price 15000, Diagnostics qty 1 price 1200)'
-        required: true
-        default: 'Engine Rebuild quantity 1 price 15000, Diagnostics qty 1 price 1200'
+
+      # 10 Separate Line Item Inputs (Format: Description, Qty, Price)
+      item_1:
+        description: '1. Description, Qty, Price'
+        required: false
+        default: 'Engine Rebuild, 1, 15000'
+      item_2:
+        description: '2. Description, Qty, Price'
+        required: false
+        default: 'Diagnostics & Auto Electrical, 1, 1200'
+      item_3:
+        description: '3. Description, Qty, Price'
+        required: false
+        default: ''
+      item_4:
+        description: '4. Description, Qty, Price'
+        required: false
+        default: ''
+      item_5:
+        description: '5. Description, Qty, Price'
+        required: false
+        default: ''
+      item_6:
+        description: '6. Description, Qty, Price'
+        required: false
+        default: ''
+      item_7:
+        description: '7. Description, Qty, Price'
+        required: false
+        default: ''
+      item_8:
+        description: '8. Description, Qty, Price'
+        required: false
+        default: ''
+      item_9:
+        description: '9. Description, Qty, Price'
+        required: false
+        default: ''
+      item_10:
+        description: '10. Description, Qty, Price'
+        required: false
+        default: ''
 
 jobs:
   build-invoice:
@@ -58,7 +96,16 @@ jobs:
           CLIENT_ADDRESS: ${{ github.event.inputs.client_address }}
           CLIENT_TELEPHONE: ${{ github.event.inputs.client_telephone }}
           CLIENT_EMAIL: ${{ github.event.inputs.client_email }}
-          RAW_SERVICES: ${{ github.event.inputs.raw_services }}
+          ITEM_1: ${{ github.event.inputs.item_1 }}
+          ITEM_2: ${{ github.event.inputs.item_2 }}
+          ITEM_3: ${{ github.event.inputs.item_3 }}
+          ITEM_4: ${{ github.event.inputs.item_4 }}
+          ITEM_5: ${{ github.event.inputs.item_5 }}
+          ITEM_6: ${{ github.event.inputs.item_6 }}
+          ITEM_7: ${{ github.event.inputs.item_7 }}
+          ITEM_8: ${{ github.event.inputs.item_8 }}
+          ITEM_9: ${{ github.event.inputs.item_9 }}
+          ITEM_10: ${{ github.event.inputs.item_10 }}
         run: python generate_invoice.py
 
       - name: Upload PDF Artifact
