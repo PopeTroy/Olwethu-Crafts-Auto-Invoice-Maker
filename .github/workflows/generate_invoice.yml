@@ -1,4 +1,4 @@
-name: Generate Invoice PDF (NVIDIA NIM Multi-Model Pipeline)
+name: Generate Invoice PDF (NVIDIA NIM Microservices)
 
 on:
   workflow_dispatch:
@@ -28,12 +28,12 @@ on:
         required: true
         default: 'client@example.com'
       raw_services:
-        description: 'Raw Services Description / Line Items'
+        description: 'Services (e.g., Engine Rebuild qty 1 price 15000, Diagnostics qty 1 price 1200)'
         required: true
-        default: 'Engine Rebuild quantity 1 price 15000, Auto Electrical Check quantity 1 price 1200'
+        default: 'Engine Rebuild quantity 1 price 15000, Diagnostics qty 1 price 1200'
 
 jobs:
-  generate-pdf:
+  build-invoice:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -49,7 +49,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install fpdf2 requests python-dotenv openai
 
-      - name: Execute 6-Model NVIDIA NIM Pipeline
+      - name: Execute Invoice Generator Script
         env:
           NVCF_TARGET_SERVICE_KEY: ${{ secrets.NVCF_TARGET_SERVICE_KEY }}
           INVOICE_NUMBER: ${{ github.event.inputs.invoice_number }}
@@ -64,5 +64,5 @@ jobs:
       - name: Upload PDF Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: generated-invoice-pdf
+          name: invoice-pdf
           path: invoice.pdf
