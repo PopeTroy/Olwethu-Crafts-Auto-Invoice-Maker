@@ -1,18 +1,42 @@
-name: Generate Invoice PDF
+name: Generate Invoice PDF (NVIDIA NIM Multi-Model Pipeline)
 
 on:
-  push:
-    paths:
-      - 'invoice.yml'
-      - 'generate_pdf.py'
   workflow_dispatch:
+    inputs:
+      invoice_number:
+        description: 'Invoice Number'
+        required: true
+        default: 'INV-2026-001'
+      date:
+        description: 'Invoice Date (YYYY-MM-DD)'
+        required: true
+        default: '2026-08-06'
+      client_name:
+        description: 'Client Full Name / Company'
+        required: true
+        default: 'Mbuso Tshabalala'
+      client_address:
+        description: 'Client Address'
+        required: true
+        default: '123 Main Street, Sandton, Johannesburg'
+      client_telephone:
+        description: 'Client Telephone'
+        required: true
+        default: '082 123 4567'
+      client_email:
+        description: 'Client Email'
+        required: true
+        default: 'client@example.com'
+      raw_services:
+        description: 'Raw Services Description / Line Items'
+        required: true
+        default: 'Engine Rebuild quantity 1 price 15000, Auto Electrical Check quantity 1 price 1200'
 
 jobs:
-  build-pdf:
+  generate-pdf:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Repository
+      - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -23,13 +47,22 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install fpdf2 requests python-dotenv openai
 
-      - name: Run PDF Generator
-        run: python generate_pdf.py
+      - name: Execute 6-Model NVIDIA NIM Pipeline
+        env:
+          NVCF_TARGET_SERVICE_KEY: ${{ secrets.NVCF_TARGET_SERVICE_KEY }}
+          INVOICE_NUMBER: ${{ github.event.inputs.invoice_number }}
+          INVOICE_DATE: ${{ github.event.inputs.date }}
+          CLIENT_NAME: ${{ github.event.inputs.client_name }}
+          CLIENT_ADDRESS: ${{ github.event.inputs.client_address }}
+          CLIENT_TELEPHONE: ${{ github.event.inputs.client_telephone }}
+          CLIENT_EMAIL: ${{ github.event.inputs.client_email }}
+          RAW_SERVICES: ${{ github.event.inputs.raw_services }}
+        run: python generate_invoice.py
 
-      - name: Upload Invoice PDF Artifact
+      - name: Upload PDF Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: generated-invoice
+          name: generated-invoice-pdf
           path: invoice.pdf
