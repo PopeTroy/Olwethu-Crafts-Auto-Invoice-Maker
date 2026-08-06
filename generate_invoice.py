@@ -1,5 +1,4 @@
 import os
-import re
 import json
 import urllib.request
 from openai import OpenAI
@@ -12,29 +11,55 @@ nvidia_client = OpenAI(
     api_key=api_key if api_key else "dummy_key"
 )
 
-# Environment Inputs
+# Header & Client Variables
 invoice_number = os.getenv("INVOICE_NUMBER", "INV-2026-001")
 date = os.getenv("INVOICE_DATE", "2026-08-06")
 client_name = os.getenv("CLIENT_NAME", "Valued Client")
 client_address = os.getenv("CLIENT_ADDRESS", "Sandton, Johannesburg")
 client_telephone = os.getenv("CLIENT_TELEPHONE", "082 000 0000")
 client_email = os.getenv("CLIENT_EMAIL", "client@example.com")
-raw_services = os.getenv("RAW_SERVICES", "Engine Rebuild quantity 1 price 15000")
 
 logo_url = "https://celsiustechmediagroup.co.za/wp-content/uploads/2026/08/IMG-20260801-WA0000.jpg"
 logo_path = "company_logo.jpg"
 
-# Download Logo Image
+# Download Logo
 try:
     req = urllib.request.Request(logo_url, headers={'User-Agent': 'Mozilla/5.0'})
     with urllib.request.urlopen(req) as response, open(logo_path, 'wb') as out_file:
         out_file.write(response.read())
 except Exception as e:
-    print(f"Warning: Logo download failed ({e}). Generating PDF without logo image.")
+    print(f"Notice: Logo download bypassed ({e}).")
     logo_path = None
 
+# Collect and Parse the 10 Item Inputs
+raw_items = []
+for i in range(1, 11):
+    val = os.getenv(f"ITEM_{i}", "").strip()
+    if val:
+        raw_items.append(val)
+
+parsed_items = []
+for item_str in raw_items:
+    parts = [p.strip() for p in item_str.split(",")]
+    if len(parts) >= 3:
+        desc = parts[0]
+        try:
+            qty = int(parts[1])
+        except ValueError:
+            qty = 1
+        try:
+            price = float(parts[2])
+        except ValueError:
+            price = 0.0
+        parsed_items.append({"description": desc, "quantity": qty, "unit_price": price})
+    elif len(parts) == 1 and parts[0]:
+        parsed_items.append({"description": parts[0], "quantity": 1, "unit_price": 0.0})
+
+if not parsed_items:
+    parsed_items = [{"description": "General Auto Service", "quantity": 1, "unit_price": 0.0}]
+
+# --- NVIDIA NIM MICROSERVICES PIPELINE ---
 def call_nim_model(model_name: str, prompt: str) -> str:
-    """Invokes an NVIDIA NIM microservice model with error fallback."""
     if not api_key or api_key == "dummy_key":
         return ""
     try:
@@ -45,49 +70,28 @@ def call_nim_model(model_name: str, prompt: str) -> str:
         )
         return response.choices[0].message.content
     except Exception as e:
-        print(f"Notice: NIM model {model_name} skipped due to API response: {e}")
+        print(f"NIM Model {model_name} skipped: {e}")
         return ""
 
-# --- 6 NVIDIA NIM MICROSERVICES PIPELINE ---
+print("Executing NIM 1 (Llama 3.3 70B - Validation)...")
+call_nim_model("meta/llama-3.3-70b-instruct", f"Validate item list: {json.dumps(parsed_items)}")
 
-print("Executing NIM 1 (Llama 3.3 70B - Parsing line items)...")
-prompt_1 = f"Parse into JSON array of objects with keys 'description' (string), 'quantity' (int), 'unit_price' (float): {raw_services}"
-res_1 = call_nim_model("meta/llama-3.3-70b-instruct", prompt_1)
+print("Executing NIM 2 (DeepSeek R1 - Math Check)...")
+call_nim_model("deepseek-ai/deepseek-r1", f"Verify total price calculation for: {json.dumps(parsed_items)}")
 
-print("Executing NIM 2 (DeepSeek R1 - Math audit)...")
-prompt_2 = f"Verify math calculations for JSON: {res_1}"
-res_2 = call_nim_model("deepseek-ai/deepseek-r1", prompt_2)
+print("Executing NIM 3 (Nemotron 4 340B - Warranty Text)...")
+res_3 = call_nim_model("nvidia/nemotron-4-340b-instruct", "Generate a 1-sentence repair warranty note for South Africa.")
 
-print("Executing NIM 3 (Nemotron 4 340B - Business Terms)...")
-prompt_3 = "Generate a 1-sentence warranty and payment term notice for an auto repair shop in South Africa."
-res_3 = call_nim_model("nvidia/nemotron-4-340b-instruct", prompt_3)
+print("Executing NIM 4 (Qwen 2.5 72B - Address Cleaning)...")
+res_4 = call_nim_model("qwen/qwen2.5-72b-instruct", f"Clean up this address: {client_address}")
 
-print("Executing NIM 4 (Qwen 2.5 72B - Address Formatter)...")
-prompt_4 = f"Clean up and format this address on a single line: {client_address}"
-res_4 = call_nim_model("qwen/qwen2.5-72b-instruct", prompt_4)
+print("Executing NIM 5 (Mistral Large 2 - Thank You Note)...")
+res_5 = call_nim_model("mistralai/mistral-large-2-instruct", f"Write a warm 1-sentence thank you note to {client_name}.")
 
-print("Executing NIM 5 (Mistral Large 2 - Customer Note)...")
-prompt_5 = f"Write a warm 1-sentence thank you note for client {client_name}."
-res_5 = call_nim_model("mistralai/mistral-large-2-instruct", prompt_5)
+print("Executing NIM 6 (Gemma 2 27B - Quality Audit)...")
+call_nim_model("google/gemma-2-27b-it", f"Audit invoice #{invoice_number}.")
 
-print("Executing NIM 6 (Gemma 2 27B - Final Compliance Audit)...")
-prompt_6 = f"Review invoice #{invoice_number} for completeness. Confirm output."
-res_6 = call_nim_model("google/gemma-2-27b-it", prompt_6)
-
-# Extract structured items or build fallback
-items = []
-if res_1:
-    try:
-        match = re.search(r'\[.*\]', res_1, re.DOTALL)
-        if match:
-            items = json.loads(match.group(0))
-    except Exception:
-        pass
-
-if not items:
-    items = [{"description": raw_services, "quantity": 1, "unit_price": 1000.00}]
-
-# PDF Class Definition with Fine Print Footer
+# --- PDF GENERATION ---
 class InvoicePDF(FPDF):
     def footer(self):
         self.set_y(-25)
@@ -102,19 +106,18 @@ class InvoicePDF(FPDF):
         )
         self.multi_cell(0, 4, footer_text, align="C")
 
-# Build PDF Document
 pdf = InvoicePDF()
 pdf.add_page()
 pdf.set_auto_page_break(auto=True, margin=30)
 
-# Render Logo if downloaded
+# Render Logo Image
 if logo_path and os.path.exists(logo_path):
     try:
         pdf.image(logo_path, x=10, y=8, w=45)
     except Exception:
         pass
 
-# Header Business Information
+# Business Details
 pdf.set_font("Helvetica", style="B", size=14)
 pdf.set_xy(110, 10)
 pdf.multi_cell(0, 5, "OLWETHU CRAFTS AUTO", align="R")
@@ -152,7 +155,7 @@ pdf.set_xy(110, start_y)
 pdf.cell(0, 5, f"Date: {date}", align="R")
 pdf.ln(20)
 
-# Line Items Table
+# Table Header
 pdf.set_font("Helvetica", style="B", size=10)
 pdf.set_fill_color(240, 240, 240)
 pdf.cell(90, 8, "Description", border=1, fill=True)
@@ -161,11 +164,12 @@ pdf.cell(35, 8, "Unit Price (R)", border=1, align="R", fill=True)
 pdf.cell(40, 8, "Total (R)", border=1, align="R", fill=True)
 pdf.ln()
 
+# Table Data
 pdf.set_font("Helvetica", size=9)
 grand_total = 0.0
 
-for item in items:
-    desc = str(item.get("description", "Auto Service"))
+for item in parsed_items:
+    desc = str(item.get("description", ""))
     qty = int(item.get("quantity", 1))
     price = float(item.get("unit_price", 0.0))
     total = qty * price
@@ -177,13 +181,13 @@ for item in items:
     pdf.cell(40, 8, f"{total:.2f}", border=1, align="R")
     pdf.ln()
 
-# Total Amount
+# Total Row
 pdf.set_font("Helvetica", style="B", size=10)
 pdf.cell(150, 10, "Total Amount Due:", border=0, align="R")
 pdf.cell(40, 10, f"R {grand_total:.2f}", border=1, align="R")
 pdf.ln(15)
 
-# NIM AI Generated Notes
+# NIM Notes Section
 notes = []
 if res_5:
     notes.append(res_5.strip())
@@ -195,4 +199,4 @@ if notes:
     pdf.multi_cell(0, 4, "\n".join(notes))
 
 pdf.output("invoice.pdf")
-print("Invoice PDF generated successfully as invoice.pdf")
+print("Invoice PDF successfully generated.")
